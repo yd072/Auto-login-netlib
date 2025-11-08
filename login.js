@@ -1,4 +1,4 @@
-// --- START OF FILE login.js ---
+// --- START OF FILE login.js  ---
 
 const axios = require('axios');
 const { chromium } = require('playwright');
@@ -8,6 +8,7 @@ const token = process.env.BOT_TOKEN;
 const chatId = process.env.CHAT_ID;
 const accounts = process.env.ACCOUNTS;
 const LOG_FILE = 'login_history.log';
+const LOG_RETENTION_DAYS = 90; 
 
 if (!accounts) {
   console.log('❌ 未配置账号');
@@ -23,6 +24,31 @@ if (accountList.length === 0) {
   console.log('❌ 账号格式错误，应为 username1:password1,username2:password2');
   process.exit(1);
 }
+
+function rotateLog() {
+  if (!fs.existsSync(LOG_FILE)) {
+    return;
+  }
+  try {
+    console.log(`🧹 正在检查并清理 ${LOG_RETENTION_DAYS} 天前的旧日志...`);
+    const retentionDate = new Date();
+    retentionDate.setDate(retentionDate.getDate() - LOG_RETENTION_DAYS);
+
+    const lines = fs.readFileSync(LOG_FILE, 'utf8').split('\n');
+    const recentLines = lines.filter(line => {
+      if (!line.trim()) return false;
+      const dateStr = line.split(':')[0];
+      const logDate = new Date(dateStr);
+      return logDate >= retentionDate;
+    });
+
+    fs.writeFileSync(LOG_FILE, recentLines.join('\n') + (recentLines.length > 0 ? '\n' : ''), 'utf8');
+    console.log('✅ 旧日志清理完成。');
+  } catch (e) {
+    console.error(`❌ 清理日志失败: ${e.message}`);
+  }
+}
+
 
 function writeLog(message) {
   try {
@@ -56,9 +82,7 @@ async function sendTelegram(message) {
 }
 
 async function loginWithAccount(user, pass, index) {
-  // --- 主要修改点在这里 ---
-  const accountId = `user${index + 1}`; // 使用 user1, user2... 作为匿名标识
-  
+  const accountId = `user${index + 1}`;
   console.log(`\n🚀 开始登录: ${accountId}`);
   
   const browser = await chromium.launch({ 
@@ -78,10 +102,10 @@ async function loginWithAccount(user, pass, index) {
     await page.click('text=Login', { timeout: 5000 });
     await page.waitForTimeout(2000);
     console.log(`📝 ${accountId} - 填写用户名...`);
-    await page.fill('input[name="username"], input[type="text"]', user); 
+    await page.fill('input[name="username"], input[type="text"]', user);
     await page.waitForTimeout(1000);
     console.log(`🔒 ${accountId} - 填写密码...`);
-    await page.fill('input[name="password"], input[type="password"]', pass); 
+    await page.fill('input[name="password"], input[type="password"]', pass);
     await page.waitForTimeout(1000);
     console.log(`📤 ${accountId} - 提交登录...`);
     await page.click('button:has-text("Validate"), input[type="submit"]');
@@ -93,16 +117,16 @@ async function loginWithAccount(user, pass, index) {
       console.log(`✅ ${accountId} - 登录成功`);
       result.success = true;
       result.message = `✅ ${accountId} 登录成功`;
-      writeLog(`${accountId} 登录成功`); // 日志记录使用匿名标识
+      writeLog(`${accountId} 登录成功`);
     } else {
       console.log(`❌ ${accountId} - 登录失败`);
       result.message = `❌ ${accountId} 登录失败`;
-      writeLog(`${accountId} 登录失败`); // 日志记录使用匿名标识
+      writeLog(`${accountId} 登录失败`);
     }
   } catch (e) {
     console.log(`❌ ${accountId} - 登录异常: ${e.message}`);
     result.message = `❌ ${accountId} 登录异常: ${e.message}`;
-    writeLog(`${accountId} 登录异常: ${e.message.split('\n')[0]}`); 
+    writeLog(`${accountId} 登录异常: ${e.message.split('\n')[0]}`);
   } finally {
     if (page) await page.close();
     await browser.close();
@@ -111,6 +135,8 @@ async function loginWithAccount(user, pass, index) {
 }
 
 async function main() {
+  rotateLog(); 
+
   console.log(`🔍 发现 ${accountList.length} 个账号需要登录`);
   const results = [];
   for (let i = 0; i < accountList.length; i++) {
@@ -138,20 +164,4 @@ async function main() {
   console.log('\n✅ 所有账号处理完成！');
 }
 
-main().catch(console.error);```
-
-### 最终效果
-
-现在，脚本运行后：
-
-1.  **仓库中的 `login_history.log` 文件**内容将完全符合您的要求：
-    ```
-    2025-11-08: user1 登录成功
-    2025-11-08: user2 登录失败
-    2025-11-08: 汇总: 1/2 成功
-    ```
-2.  **Telegram 通知**中的内容也会同步更新为：
-    ```
-    ✅ user1 登录成功
-    ❌ user2 登录失败
-    ```
+main().catch(console.error);
