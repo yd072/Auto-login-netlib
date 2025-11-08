@@ -56,7 +56,9 @@ async function sendTelegram(message) {
 }
 
 async function loginWithAccount(user, pass, index) {
-  const accountId = `账号${index + 1}`; 
+  // --- 主要修改点在这里 ---
+  const accountId = `user${index + 1}`; // 使用 user1, user2... 作为匿名标识
+  
   console.log(`\n🚀 开始登录: ${accountId}`);
   
   const browser = await chromium.launch({ 
@@ -76,10 +78,10 @@ async function loginWithAccount(user, pass, index) {
     await page.click('text=Login', { timeout: 5000 });
     await page.waitForTimeout(2000);
     console.log(`📝 ${accountId} - 填写用户名...`);
-    await page.fill('input[name="username"], input[type="text"]', user);
+    await page.fill('input[name="username"], input[type="text"]', user); 
     await page.waitForTimeout(1000);
     console.log(`🔒 ${accountId} - 填写密码...`);
-    await page.fill('input[name="password"], input[type="password"]', pass);
+    await page.fill('input[name="password"], input[type="password"]', pass); 
     await page.waitForTimeout(1000);
     console.log(`📤 ${accountId} - 提交登录...`);
     await page.click('button:has-text("Validate"), input[type="submit"]');
@@ -91,16 +93,16 @@ async function loginWithAccount(user, pass, index) {
       console.log(`✅ ${accountId} - 登录成功`);
       result.success = true;
       result.message = `✅ ${accountId} 登录成功`;
-      writeLog(`${user} 登录成功`); 
+      writeLog(`${accountId} 登录成功`); // 日志记录使用匿名标识
     } else {
       console.log(`❌ ${accountId} - 登录失败`);
       result.message = `❌ ${accountId} 登录失败`;
-      writeLog(`${user} 登录失败`); 
+      writeLog(`${accountId} 登录失败`); // 日志记录使用匿名标识
     }
   } catch (e) {
     console.log(`❌ ${accountId} - 登录异常: ${e.message}`);
     result.message = `❌ ${accountId} 登录异常: ${e.message}`;
-    writeLog(`${user} 登录异常: ${e.message.split('\n')[0]}`); 
+    writeLog(`${accountId} 登录异常: ${e.message.split('\n')[0]}`); 
   } finally {
     if (page) await page.close();
     await browser.close();
@@ -136,4 +138,20 @@ async function main() {
   console.log('\n✅ 所有账号处理完成！');
 }
 
-main().catch(console.error);
+main().catch(console.error);```
+
+### 最终效果
+
+现在，脚本运行后：
+
+1.  **仓库中的 `login_history.log` 文件**内容将完全符合您的要求：
+    ```
+    2025-11-08: user1 登录成功
+    2025-11-08: user2 登录失败
+    2025-11-08: 汇总: 1/2 成功
+    ```
+2.  **Telegram 通知**中的内容也会同步更新为：
+    ```
+    ✅ user1 登录成功
+    ❌ user2 登录失败
+    ```
